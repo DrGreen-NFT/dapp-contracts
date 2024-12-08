@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./PlanetsMetadataInterface.sol";
 import {DynamicTraits} from "./DynamicTraits.sol";
+import {IERC7496} from "./IERC7496.sol";
 
 contract DrGreenNFT is
     ERC721,
@@ -665,7 +666,13 @@ contract DrGreenNFT is
         override(ERC721, DynamicTraits, ERC2981, AccessControl)
         returns (bool)
     {
-        return super.supportsInterface(interfaceId);
+        return
+            interfaceId == type(IERC721).interfaceId || // ERC-721 interface
+            interfaceId == type(IERC721Metadata).interfaceId || // ERC-721 Metadata interface
+            interfaceId == type(IERC7496).interfaceId || // Dynamic Trait
+            interfaceId == type(IERC2981).interfaceId || // ERC-2981 Royalty interface
+            interfaceId == type(IAccessControl).interfaceId || // AccessControl interface
+            super.supportsInterface(interfaceId);
     }
 
     function maxSupply()
@@ -675,6 +682,14 @@ contract DrGreenNFT is
         returns (uint8 gold, uint8 platinum, uint16 total)
     {
         return (GOLD_MAX_SUPPLY, PLATINUM_MAX_SUPPLY, MAX_SUPPLY);
+    }
+
+    // total current supply of gold+platinum+standard
+    function totalSupply() public view returns (uint256) {
+        return
+            (_goldCurrIndex - 1) +
+            (_platinumCurrIndex - _platinumStartIndex) +
+            (_standardCurrIndex - _standardStartIndex);
     }
 
     function numberMinted(
