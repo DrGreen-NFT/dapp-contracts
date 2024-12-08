@@ -46,16 +46,14 @@ contract DrGreenNFT is
         address indexed receiver,
         uint96 feePercent
     );
-    event OwnershipTransferred(
+    event OwnershipRenounced(
         address indexed oldOwner,
         address indexed newOwner
     );
     event BaseTokenURIUpdated(string baseTokenUri);
 
-    bytes32 public constant WHITELIST_ADMIN_ROLE =
-        keccak256("WHITELIST_ADMIN_ROLE");
-    bytes32 public constant GOLD_PLATINUM_MINTER_ROLE =
-        keccak256("GOLD_PLATINUM_MINTER_ROLE");
+    bytes32 public constant WHITELIST_SIGNER_ROLE =
+        keccak256("WHITELIST_SIGNER_ROLE");
     bytes32 public constant NFT_UPDATE_SIGNER_ROLE =
         keccak256("NFT_UPDATE_SIGNER_ROLE");
 
@@ -121,7 +119,7 @@ contract DrGreenNFT is
         string memory traitMetadataURI,
         address ownerAddress,
         address royaltyReceiver
-    ) ERC721("Dr Green NFT", "DRG") {
+    ) ERC721("Dr Green Digital Key", "DRGDK") {
         require(
             planetsMetadataAddr != address(0),
             "metadata addr cant be empty"
@@ -135,8 +133,7 @@ contract DrGreenNFT is
         _setTraitMetadataURI(traitMetadataURI);
         _setDefaultRoyalty(royaltyReceiver, 900);
         _grantRole(DEFAULT_ADMIN_ROLE, ownerAddress);
-        _grantRole(GOLD_PLATINUM_MINTER_ROLE, ownerAddress);
-        _grantRole(WHITELIST_ADMIN_ROLE, ownerAddress);
+        _grantRole(WHITELIST_SIGNER_ROLE, ownerAddress);
         _grantRole(NFT_UPDATE_SIGNER_ROLE, ownerAddress);
     }
 
@@ -158,15 +155,6 @@ contract DrGreenNFT is
         require(
             hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
             "Caller is not a owner"
-        );
-        _;
-    }
-
-    modifier onlyGoldPlatinumMinters() {
-        require(
-            hasRole(DEFAULT_ADMIN_ROLE, msg.sender) ||
-                hasRole(GOLD_PLATINUM_MINTER_ROLE, msg.sender),
-            "you are not authorized"
         );
         _;
     }
@@ -359,7 +347,7 @@ contract DrGreenNFT is
     function goldMint(
         address[] calldata addresses,
         uint16[] calldata metedataIds
-    ) external onlyGoldPlatinumMinters {
+    ) external onlyOwner {
         uint8 totalGoldMinted = _goldCurrIndex - 1;
         require(totalGoldMinted < GOLD_MAX_SUPPLY, "all gold NFTs are minted.");
         require(
@@ -409,7 +397,7 @@ contract DrGreenNFT is
     function platinumMint(
         address[] calldata addresses,
         uint16[] calldata metedataIds
-    ) external onlyGoldPlatinumMinters {
+    ) external onlyOwner {
         uint8 totalPlatinumMinted = _platinumCurrIndex - _platinumStartIndex;
         require(
             totalPlatinumMinted < PLATINUM_MAX_SUPPLY,
@@ -604,18 +592,11 @@ contract DrGreenNFT is
         emit BaseTokenURIUpdated(baseTokenURI);
     }
 
-    // Transfer Ownership
-    function transferOwnership(address newOwner) external onlyOwner {
-        require(
-            msg.sender != newOwner,
-            "new owner and current owner can not be the same"
-        );
-        // Grant the default admin role to the new newOwner
-        _grantRole(DEFAULT_ADMIN_ROLE, newOwner);
-
-        // Revoke the default admin role from the current admin
-        revokeRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        emit OwnershipTransferred(msg.sender, newOwner);
+    // Renounce Ownership
+    function renounceOwnership() external onlyOwner {
+        // Renounce admin role
+        renounceRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        emit OwnershipRenounced(msg.sender, address(0));
     }
 
     // Override the grantRole function
@@ -625,9 +606,7 @@ contract DrGreenNFT is
     ) public virtual override(AccessControl) {
         // Check if the role is one of the predefined roles
         require(
-            role == WHITELIST_ADMIN_ROLE ||
-                role == GOLD_PLATINUM_MINTER_ROLE ||
-                role == NFT_UPDATE_SIGNER_ROLE,
+            role == WHITELIST_SIGNER_ROLE || role == NFT_UPDATE_SIGNER_ROLE,
             "Invalid role"
         );
 
@@ -782,10 +761,12 @@ contract DrGreenNFT is
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19Ethereum Signed Message:\n32",
-                keccak256(abi.encodePacked(mintType, msg.sender, limit))
+                keccak256(
+                    abi.encodePacked(mintType, msg.sender, limit, address(this))
+                )
             )
         );
-        return hasRole(WHITELIST_ADMIN_ROLE, digest.recover(sig));
+        return hasRole(WHITELIST_SIGNER_ROLE, digest.recover(sig));
     }
 
     // Internal function for managing round creation and updates
