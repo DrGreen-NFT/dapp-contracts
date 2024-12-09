@@ -777,7 +777,7 @@ contract DrGreenNFT is
             abi.encodePacked(
                 "\x19Ethereum Signed Message:\n32",
                 keccak256(
-                    abi.encodePacked(mintType, msg.sender, limit, address(this))
+                    abi.encodePacked(mintType, msg.sender, limit, address(this), block.chainid)
                 )
             )
         );
