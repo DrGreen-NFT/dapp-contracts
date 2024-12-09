@@ -47,10 +47,6 @@ contract DrGreenNFT is
         address indexed receiver,
         uint96 feePercent
     );
-    event OwnershipRenounced(
-        address indexed oldOwner,
-        address indexed newOwner
-    );
     event BaseTokenURIUpdated(string baseTokenUri);
 
     bytes32 public constant WHITELIST_SIGNER_ROLE =
@@ -318,7 +314,13 @@ contract DrGreenNFT is
                 MerkleProof.verify(
                     merkleProof,
                     round.merkleRoot,
-                    keccak256(abi.encodePacked(msg.sender))
+                    keccak256(
+                        abi.encodePacked(
+                            msg.sender,
+                            address(this),
+                            block.chainid
+                        )
+                    )
                 ),
                 "You are not Greenlisted for this round"
             );
@@ -593,13 +595,6 @@ contract DrGreenNFT is
         emit BaseTokenURIUpdated(baseTokenURI);
     }
 
-    // Renounce Ownership
-    function renounceOwnership() external onlyOwner {
-        // Renounce admin role
-        renounceRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        emit OwnershipRenounced(msg.sender, address(0));
-    }
-
     // Override the grantRole function
     function grantRole(
         bytes32 role,
@@ -631,7 +626,14 @@ contract DrGreenNFT is
             "you are not owner of the token."
         );
         require(bytes(newMetadataUri).length > 0, "Token URI cannot be empty");
-        bytes32 digest = keccak256(abi.encodePacked(tokenId, newMetadataUri));
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                tokenId,
+                newMetadataUri,
+                address(this),
+                block.chainid
+            )
+        );
         require(
             hasRole(NFT_UPDATE_SIGNER_ROLE, digest.recover(sig)),
             "signature validation failed"
@@ -777,7 +779,13 @@ contract DrGreenNFT is
             abi.encodePacked(
                 "\x19Ethereum Signed Message:\n32",
                 keccak256(
-                    abi.encodePacked(mintType, msg.sender, limit, address(this), block.chainid)
+                    abi.encodePacked(
+                        mintType,
+                        msg.sender,
+                        limit,
+                        address(this),
+                        block.chainid
+                    )
                 )
             )
         );
